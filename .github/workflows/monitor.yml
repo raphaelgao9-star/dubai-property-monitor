@@ -1,0 +1,35 @@
+name: Daily DLD Market Monitor
+
+on:
+  schedule:
+    # 每天 UTC 时间 4:00 运行（对应迪拜时间上午 8:00）
+    - cron: '0 4 * * *'
+  workflow_dispatch: # 这个配置允许你在网页上点击按钮手动运行，方便随时测试
+
+permissions:
+  contents: write # 允许 Action 把更新后的 JSON 提交回仓库
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python 环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 安装依赖 (pandas 和 requests)
+        run: |
+          pip install requests pandas
+
+      - name: 运行迪拜房产监控脚本
+        run: python dld_monitor.py
+
+      - name: 将新的数据文件推送到仓库
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Auto-update: Daily DLD Market Data"
+          file_pattern: market_data.json
