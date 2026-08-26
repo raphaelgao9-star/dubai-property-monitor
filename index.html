@@ -1,5 +1,86 @@
-<script>
-        const purchasePrice = 2700000;
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dubai Townhouse 投资监测仪</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans p-6 md:p-10">
+
+    <div class="max-w-6xl mx-auto space-y-6">
+        <!-- 头部信息 -->
+        <div class="flex justify-between items-end border-b pb-4">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">我的房产投资组合</h1>
+                <p class="text-gray-500 mt-1">坐标: Mudon Arabella 3 | 户型: 3 Bedroom Townhouse</p>
+            </div>
+            <div class="text-right">
+                <p class="text-sm text-gray-500">买入价格</p>
+                <p class="text-2xl font-bold text-blue-600">AED 2,700,000</p>
+            </div>
+        </div>
+
+        <!-- ⚠️ 预警模块 -->
+        <div id="alertBanner" class="hidden bg-red-50 border-l-4 border-red-500 p-4 rounded-md shadow-sm transition-all">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">系统提示 / 市场预警</h3>
+                    <p id="alertMessage" class="mt-2 text-sm text-red-700"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 市场数据卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                <h3 class="text-gray-500 text-sm font-medium">Arabella 当前均价 (3居室)</h3>
+                <p id="arabellaSale" class="text-2xl font-bold mt-2">加载中...</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                <h3 class="text-gray-500 text-sm font-medium">Arabella 平均年租金</h3>
+                <p id="arabellaRent" class="text-2xl font-bold mt-2">加载中...</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                <h3 class="text-gray-500 text-sm font-medium">当前毛租金收益率 (Gross Yield)</h3>
+                <p id="arabellaYield" class="text-2xl font-bold mt-2">加载中...</p>
+            </div>
+        </div>
+
+        <!-- 竞品对比与图表 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                <h2 class="text-lg font-bold mb-4">周边社区竞品对比</h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-left text-sm">
+                        <thead class="border-b bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3">社区 (3房联排)</th>
+                                <th class="px-4 py-3">近期均价 (AED)</th>
+                                <th class="px-4 py-3">平均租金 (AED)</th>
+                                <th class="px-4 py-3">租售比</th>
+                            </tr>
+                        </thead>
+                        <tbody id="comparisonTable" class="divide-y">
+                            <!-- 数据由JS渲染 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                <h2 class="text-lg font-bold mb-4">Arabella 3房近期成交走势</h2>
+                <canvas id="trendChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
         const alertThreshold = 0.06; // 6%
         const formatAED = (num) => 'AED ' + num.toLocaleString();
         
@@ -7,31 +88,31 @@
             try {
                 // 动态获取 Python 脚本生成的 JSON 文件
                 const response = await fetch('market_data.json');
+                if (!response.ok) throw new Error("JSON文件不存在或获取失败");
                 const marketData = await response.json();
                 
                 renderDashboard(marketData);
             } catch (error) {
                 console.error("无法加载市场数据:", error);
-                document.getElementById('alertMessage').innerText = "数据加载失败，请检查 Python 脚本是否正常生成了 market_data.json";
+                document.getElementById('alertMessage').innerText = "数据加载失败。请前往 GitHub Actions 检查 Python 脚本是否成功运行并生成了 market_data.json 文件。";
                 document.getElementById('alertBanner').classList.remove('hidden');
             }
         }
 
         function renderDashboard(marketData) {
             const arabellaData = marketData.find(d => d.id === 'arabella');
-            
             if (!arabellaData) return;
 
             const currentYield = arabellaData.rent / arabellaData.sale;
 
-            // 渲染顶部卡片
+            // 1. 渲染顶部卡片
             document.getElementById('arabellaSale').innerText = formatAED(arabellaData.sale);
             document.getElementById('arabellaRent').innerText = formatAED(arabellaData.rent);
             
             const yieldElement = document.getElementById('arabellaYield');
             yieldElement.innerText = (currentYield * 100).toFixed(2) + '%';
             
-            // 预警逻辑判断
+            // 2. 预警逻辑判断
             if (currentYield < alertThreshold) {
                 document.getElementById('alertBanner').classList.remove('hidden');
                 yieldElement.classList.add('text-red-600');
@@ -41,9 +122,9 @@
                 yieldElement.classList.add('text-green-600');
             }
 
-            // 渲染对比表格
+            // 3. 渲染对比表格
             const tableBody = document.getElementById('comparisonTable');
-            tableBody.innerHTML = ''; // 清空占位符
+            tableBody.innerHTML = ''; 
             
             marketData.forEach(item => {
                 const itemYield = (item.rent / item.sale * 100).toFixed(2);
@@ -58,8 +139,30 @@
                 tableBody.insertAdjacentHTML('beforeend', rowHtml);
             });
 
-            // 图表渲染代码保持不变，你可以考虑将历史月份数据也存入 JSON 以实现图表动态化
+            // 4. 渲染图表
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['一月', '二月', '三月', '四月', '五月', '本月'],
+                    datasets: [{
+                        label: '成交均价 (百万 AED)',
+                        data: [2.65, 2.68, 2.70, 2.75, 2.82, (arabellaData.sale / 1000000).toFixed(2)],
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { min: 2.5 } }
+                }
+            });
         }
 
         window.onload = loadMarketData;
     </script>
+</body>
+</html>
