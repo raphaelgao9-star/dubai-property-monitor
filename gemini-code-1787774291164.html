@@ -1,0 +1,65 @@
+<script>
+        const purchasePrice = 2700000;
+        const alertThreshold = 0.06; // 6%
+        const formatAED = (num) => 'AED ' + num.toLocaleString();
+        
+        async function loadMarketData() {
+            try {
+                // 动态获取 Python 脚本生成的 JSON 文件
+                const response = await fetch('market_data.json');
+                const marketData = await response.json();
+                
+                renderDashboard(marketData);
+            } catch (error) {
+                console.error("无法加载市场数据:", error);
+                document.getElementById('alertMessage').innerText = "数据加载失败，请检查 Python 脚本是否正常生成了 market_data.json";
+                document.getElementById('alertBanner').classList.remove('hidden');
+            }
+        }
+
+        function renderDashboard(marketData) {
+            const arabellaData = marketData.find(d => d.id === 'arabella');
+            
+            if (!arabellaData) return;
+
+            const currentYield = arabellaData.rent / arabellaData.sale;
+
+            // 渲染顶部卡片
+            document.getElementById('arabellaSale').innerText = formatAED(arabellaData.sale);
+            document.getElementById('arabellaRent').innerText = formatAED(arabellaData.rent);
+            
+            const yieldElement = document.getElementById('arabellaYield');
+            yieldElement.innerText = (currentYield * 100).toFixed(2) + '%';
+            
+            // 预警逻辑判断
+            if (currentYield < alertThreshold) {
+                document.getElementById('alertBanner').classList.remove('hidden');
+                yieldElement.classList.add('text-red-600');
+                document.getElementById('alertMessage').innerText = 
+                    `注意：目前 Arabella 的市场租售比已降至 ${(currentYield * 100).toFixed(2)}%。系统更新时间：${arabellaData.last_updated}`;
+            } else {
+                yieldElement.classList.add('text-green-600');
+            }
+
+            // 渲染对比表格
+            const tableBody = document.getElementById('comparisonTable');
+            tableBody.innerHTML = ''; // 清空占位符
+            
+            marketData.forEach(item => {
+                const itemYield = (item.rent / item.sale * 100).toFixed(2);
+                let rowHtml = `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 font-medium ${item.id === 'arabella' ? 'text-blue-600' : ''}">${item.name}</td>
+                        <td class="px-4 py-3">${formatAED(item.sale)}</td>
+                        <td class="px-4 py-3">${formatAED(item.rent)}</td>
+                        <td class="px-4 py-3 font-bold ${itemYield < 6 ? 'text-red-500' : 'text-green-600'}">${itemYield}%</td>
+                    </tr>
+                `;
+                tableBody.insertAdjacentHTML('beforeend', rowHtml);
+            });
+
+            // 图表渲染代码保持不变，你可以考虑将历史月份数据也存入 JSON 以实现图表动态化
+        }
+
+        window.onload = loadMarketData;
+    </script>
