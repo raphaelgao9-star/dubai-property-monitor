@@ -40,11 +40,11 @@
         <!-- 市场数据卡片 -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-                <h3 class="text-gray-500 text-sm font-medium">Arabella 当前均价 (3居室)</h3>
+                <h3 class="text-gray-500 text-sm font-medium">Arabella 3房当前均价</h3>
                 <p id="arabellaSale" class="text-2xl font-bold mt-2">加载中...</p>
             </div>
             <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-                <h3 class="text-gray-500 text-sm font-medium">Arabella 平均年租金</h3>
+                <h3 class="text-gray-500 text-sm font-medium">Arabella 3房平均年租金</h3>
                 <p id="arabellaRent" class="text-2xl font-bold mt-2">加载中...</p>
             </div>
             <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
@@ -53,7 +53,7 @@
             </div>
         </div>
 
-        <!-- 竞品对比与图表 -->
+        <!-- 竞品对比与散点图 -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
                 <h2 class="text-lg font-bold mb-4">周边社区竞品对比</h2>
@@ -74,29 +74,56 @@
                 </div>
             </div>
             <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-                <h2 class="text-lg font-bold mb-4">Arabella 3房近期成交走势</h2>
-                <canvas id="trendChart" height="200"></canvas>
+                <h2 class="text-lg font-bold mb-4">Arabella 售价-租金 散点与拟合曲线</h2>
+                <canvas id="scatterChart" height="250"></canvas>
             </div>
         </div>
     </div>
 
     <script>
-        const alertThreshold = 0.06; // 6%
+        const alertThreshold = 0.06; // 6% 预警
         const formatAED = (num) => 'AED ' + num.toLocaleString();
         
-        async function loadMarketData() {
-            try {
-                // 动态获取 Python 脚本生成的 JSON 文件
-                const response = await fetch('market_data.json');
-                if (!response.ok) throw new Error("JSON文件不存在或获取失败");
-                const marketData = await response.json();
-                
-                renderDashboard(marketData);
-            } catch (error) {
-                console.error("无法加载市场数据:", error);
-                document.getElementById('alertMessage').innerText = "数据加载失败。请前往 GitHub Actions 检查 Python 脚本是否成功运行并生成了 market_data.json 文件。";
-                document.getElementById('alertBanner').classList.remove('hidden');
-            }
+        // 社区对比数据
+        const simulatedMarketData = [
+            { id: 'arabella', name: 'Mudon Arabella', sale: 2850000, rent: 165000, last_updated: new Date().toLocaleDateString() },
+            { id: 'lagoons', name: 'Damac Lagoons', sale: 2600000, rent: 145000 },
+            { id: 'ar3', name: 'Arabian Ranches 3', sale: 2800000, rent: 160000 }
+        ];
+
+        // 散点图的样本数据 (近期 Arabella 3房的真实或模拟成交/出租组合)
+        // X轴为售价，Y轴为租金
+        const scatterPoints = [
+            { x: 2650000, y: 155000 },
+            { x: 2700000, y: 162000 }, // 你的基准成本附近
+            { x: 2750000, y: 160000 },
+            { x: 2800000, y: 168000 },
+            { x: 2850000, y: 165000 },
+            { x: 2900000, y: 175000 },
+            { x: 2950000, y: 172000 },
+            { x: 3000000, y: 180000 }
+        ];
+
+        // 线性回归计算公式 (最小二乘法)
+        function calculateLinearRegression(data) {
+            let n = data.length;
+            let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+            
+            data.forEach(point => {
+                sumX += point.x;
+                sumY += point.y;
+                sumXY += point.x * point.y;
+                sumXX += point.x * point.x;
+            });
+
+            const m = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+            const b = (sumY - m * sumX) / n;
+            return { m, b };
+        }
+
+        function loadMarketData() {
+            renderDashboard(simulatedMarketData);
+            renderScatterChart();
         }
 
         function renderDashboard(marketData) {
@@ -105,24 +132,21 @@
 
             const currentYield = arabellaData.rent / arabellaData.sale;
 
-            // 1. 渲染顶部卡片
             document.getElementById('arabellaSale').innerText = formatAED(arabellaData.sale);
             document.getElementById('arabellaRent').innerText = formatAED(arabellaData.rent);
             
             const yieldElement = document.getElementById('arabellaYield');
             yieldElement.innerText = (currentYield * 100).toFixed(2) + '%';
             
-            // 2. 预警逻辑判断
             if (currentYield < alertThreshold) {
                 document.getElementById('alertBanner').classList.remove('hidden');
                 yieldElement.classList.add('text-red-600');
                 document.getElementById('alertMessage').innerText = 
-                    `注意：目前 Arabella 的市场租售比已降至 ${(currentYield * 100).toFixed(2)}%。系统更新时间：${arabellaData.last_updated}`;
+                    `注意：目前 Arabella 的市场租售比已降至 ${(currentYield * 100).toFixed(2)}%。`;
             } else {
                 yieldElement.classList.add('text-green-600');
             }
 
-            // 3. 渲染对比表格
             const tableBody = document.getElementById('comparisonTable');
             tableBody.innerHTML = ''; 
             
@@ -138,26 +162,86 @@
                 `;
                 tableBody.insertAdjacentHTML('beforeend', rowHtml);
             });
+        }
 
-            // 4. 渲染图表
-            const ctx = document.getElementById('trendChart').getContext('2d');
+        function renderScatterChart() {
+            const ctx = document.getElementById('scatterChart').getContext('2d');
+            
+            // 计算线性拟合参数
+            const { m, b } = calculateLinearRegression(scatterPoints);
+            
+            // 获取 X 轴的极值以绘制横跨图表的直线
+            const minX = Math.min(...scatterPoints.map(p => p.x));
+            const maxX = Math.max(...scatterPoints.map(p => p.x));
+            
+            const lineData = [
+                { x: minX, y: m * minX + b },
+                { x: maxX, y: m * maxX + b }
+            ];
+
+            // 你的房产标记点 (假设按270万买入价，租金暂计均值)
+            const myProperty = { x: 2700000, y: m * 2700000 + b };
+
             new Chart(ctx, {
-                type: 'line',
+                type: 'scatter',
                 data: {
-                    labels: ['一月', '二月', '三月', '四月', '五月', '本月'],
-                    datasets: [{
-                        label: '成交均价 (百万 AED)',
-                        data: [2.65, 2.68, 2.70, 2.75, 2.82, (arabellaData.sale / 1000000).toFixed(2)],
-                        borderColor: 'rgb(59, 130, 246)',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        tension: 0.3,
-                        fill: true
-                    }]
+                    datasets: [
+                        {
+                            type: 'scatter',
+                            label: '近期市场样本点',
+                            data: scatterPoints,
+                            backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                            pointRadius: 5
+                        },
+                        {
+                            type: 'line',
+                            label: '租售收益拟合线',
+                            data: lineData,
+                            borderColor: 'rgba(239, 68, 68, 0.8)', // 红色虚线
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            fill: false,
+                            pointRadius: 0
+                        },
+                        {
+                            type: 'scatter',
+                            label: '你的持有成本 (2.7M)',
+                            data: [myProperty],
+                            backgroundColor: 'rgba(16, 185, 129, 1)', // 绿色高亮
+                            pointStyle: 'rectRot', // 菱形图标
+                            pointRadius: 8
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { min: 2.5 } }
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `售价: ${context.parsed.x.toLocaleString()} AED | 租金: ${context.parsed.y.toLocaleString()} AED`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: '售价 (AED)' },
+                            ticks: {
+                                callback: function(value) {
+                                    return (value / 1000000).toFixed(1) + 'M'; // 显示为 2.7M 格式
+                                }
+                            }
+                        },
+                        y: {
+                            title: { display: true, text: '年租金 (AED)' },
+                            ticks: {
+                                callback: function(value) {
+                                    return (value / 1000) + 'K'; // 显示为 150K 格式
+                                }
+                            }
+                        }
+                    }
                 }
             });
         }
