@@ -25,8 +25,8 @@ jobs:
         run: |
           pip install requests pandas
 
-      - name: 运行迪拜房产监控脚本
-        run: python dld_monitor.py
+      - name: 运行中东双城房产监控脚本
+        run: python market_monitor.py
 
       - name: 将新的数据文件推送到仓库
         uses: stefanzweifel/git-auto-commit-action@v5
