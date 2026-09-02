@@ -56,7 +56,7 @@
             
             <!-- 深度资产对比卡片 -->
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 lg:col-span-2">
-                <h3 class="text-lg font-bold mb-4">资产深度运营指标对比</h3>
+                <h3 class="text-lg font-bold mb-4">核心资产深度运营指标</h3>
                 <div class="overflow-x-auto">
                     <table class="min-w-full text-left text-sm">
                         <thead class="border-b-2 border-gray-200 bg-gray-50">
@@ -64,9 +64,9 @@
                                 <th class="px-4 py-3 text-gray-600 font-semibold">项目 / 属性</th>
                                 <th class="px-4 py-3 text-gray-600 font-semibold">购入成本</th>
                                 <th class="px-4 py-3 text-gray-600 font-semibold">账面浮盈</th>
-                                <th class="px-4 py-3 text-gray-600 font-semibold">年总租金</th>
-                                <th class="px-4 py-3 text-gray-600 font-semibold">预估运营损耗(OpEx)</th>
-                                <th class="px-4 py-3 text-gray-600 font-semibold">实际净收益率(Net YOC)</th>
+                                <th class="px-4 py-3 text-gray-600 font-semibold">实际年租金</th>
+                                <th class="px-4 py-3 text-gray-600 font-semibold">预估损耗(OpEx)</th>
+                                <th class="px-4 py-3 text-gray-600 font-semibold">净收益率(Net YOC)</th>
                             </tr>
                         </thead>
                         <tbody id="deepAnalysisTable" class="divide-y divide-gray-100">
@@ -77,21 +77,45 @@
             </div>
         </div>
 
-        <!-- 市场行情监控 (与上一版保留，增加趋势提示) -->
+        <!-- 市场行情监控 -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 border-t-4 border-t-blue-500">
+            <!-- 迪拜区域 -->
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 border-t-4 border-t-blue-500 flex flex-col">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-bold">Dubai: Arabella 3BR 行情监控</h3>
+                    <h3 class="text-lg font-bold">Dubai: Dubailand 3BR 竞品与空置率监控</h3>
                     <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Townhouse</span>
                 </div>
-                <canvas id="dxbScatterChart" height="200"></canvas>
+                
+                <!-- 新增：迪拜空置率对比表 -->
+                <div class="overflow-x-auto mb-6">
+                    <table class="min-w-full text-left text-sm">
+                        <thead class="border-b bg-gray-50">
+                            <tr>
+                                <th class="px-3 py-2 text-gray-600">社区</th>
+                                <th class="px-3 py-2 text-gray-600">均价</th>
+                                <th class="px-3 py-2 text-gray-600">平均租金</th>
+                                <th class="px-3 py-2 text-gray-600 font-bold">预估空置率</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dxbTable" class="divide-y divide-gray-100">
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="flex-grow relative min-h-[200px]">
+                    <canvas id="dxbScatterChart"></canvas>
+                </div>
             </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 border-t-4 border-t-red-500">
+
+            <!-- 阿布扎比区域 -->
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 border-t-4 border-t-red-500 flex flex-col">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-bold">Abu Dhabi: Nouran Living 1BR 行情监控</h3>
+                    <h3 class="text-lg font-bold">Abu Dhabi: Saadiyat 1BR 行情监控</h3>
                     <span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">Apartment</span>
                 </div>
-                <canvas id="auhBarChart" height="200"></canvas>
+                <div class="flex-grow relative min-h-[250px] flex items-center justify-center">
+                    <canvas id="auhBarChart"></canvas>
+                </div>
             </div>
         </div>
 
@@ -100,27 +124,26 @@
     <script>
         const formatM = (num) => (num / 1000000).toFixed(2) + 'M';
         const formatK = (num) => (num / 1000).toFixed(1) + 'K';
-        const formatAEDFull = (num) => num.toLocaleString();
         
-        // 你的核心资产及真实数据 (加入运营成本估算 OpEx)
+        // 核心资产数据 (锚定17万租金)
         const myPortfolio = {
             arabella: {
-                name: 'Mudon Arabella 3',
-                cost: 2700000,
-                rent: 170000, // 修正为你要求的真实租金
-                opex: 18000, // 估算物业费+维护(AED)
-                market_sale: 2850000 // 模拟API抓取当前售价
+                name: 'Mudon Arabella 3', cost: 2700000, rent: 170000, opex: 18000, market_sale: 2850000
             },
             nouran: {
-                name: 'Nouran Living',
-                cost: 1830000,
-                rent: 115000,
-                opex: 14000, // 估算物业费+维护(AED)
-                market_sale: 1950000
+                name: 'Nouran Living', cost: 1830000, rent: 115000, opex: 14000, market_sale: 1950000
             }
         };
 
-        // 迪拜散点图样本 (拟合线用)
+        // 迪拜竞品数据 (新增空置率 vacancy 字段)
+        // Arabella 成熟社区空置率极低；Lagoons 正在海量交房空置率高
+        const dxbMarketData = [
+            { id: 'arabella', name: 'Mudon Arabella', sale: 2850000, rent: 170000, vacancy: 0.035 },
+            { id: 'lagoons', name: 'Damac Lagoons', sale: 2600000, rent: 145000, vacancy: 0.125 },
+            { id: 'ar3', name: 'Arabian Ranches 3', sale: 2800000, rent: 160000, vacancy: 0.080 }
+        ];
+
+        // 迪拜散点图样本
         const dxbScatterPoints = [
             { x: 2650000, y: 160000 }, { x: 2700000, y: 165000 }, { x: 2750000, y: 168000 },
             { x: 2800000, y: 170000 }, { x: 2850000, y: 172000 }, { x: 2900000, y: 175000 }
@@ -153,9 +176,8 @@
             
             const capitalGain = totalMarket - totalCost;
             const capitalGainPct = (capitalGain / totalCost * 100).toFixed(1);
-            
             const totalNOI = totalRent - totalOpex;
-            const blendedNetYield = (totalNOI / totalCost * 100).toFixed(2); // 以成本价计算的净回报率
+            const blendedNetYield = (totalNOI / totalCost * 100).toFixed(2);
 
             document.getElementById('totalMarketValue').innerHTML = `${formatM(totalMarket)} <span class="text-sm text-slate-400">AED</span>`;
             
@@ -188,7 +210,26 @@
                 `);
             });
 
-            // --- 3. 绘制现金流拆解甜甜圈图 ---
+            // --- 3. 渲染迪拜竞品与空置率表格 ---
+            const dxbTable = document.getElementById('dxbTable');
+            dxbMarketData.forEach(item => {
+                const vacPct = (item.vacancy * 100).toFixed(1);
+                // 空置率颜色逻辑：< 5% 绿，> 10% 红，中间黄
+                let vacColor = 'text-yellow-600';
+                if (item.vacancy < 0.05) vacColor = 'text-green-600';
+                if (item.vacancy > 0.10) vacColor = 'text-red-600';
+
+                dxbTable.insertAdjacentHTML('beforeend', `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-3 py-2 font-medium ${item.id==='arabella'?'text-blue-600':''}">${item.name}</td>
+                        <td class="px-3 py-2">${formatM(item.sale)}</td>
+                        <td class="px-3 py-2">${formatK(item.rent)}</td>
+                        <td class="px-3 py-2 font-bold ${vacColor}">${vacPct}%</td>
+                    </tr>
+                `);
+            });
+
+            // --- 4. 绘制现金流拆解甜甜圈图 ---
             new Chart(document.getElementById('cashflowChart').getContext('2d'), {
                 type: 'doughnut',
                 data: {
@@ -200,18 +241,13 @@
                             totalOpex
                         ],
                         backgroundColor: ['rgba(59, 130, 246, 0.8)', 'rgba(16, 185, 129, 0.8)', 'rgba(239, 68, 68, 0.7)'],
-                        borderWidth: 2,
-                        hoverOffset: 4
+                        borderWidth: 2, hoverOffset: 4
                     }]
                 },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { position: 'right', labels: { boxWidth: 12 } } },
-                    cutout: '65%'
-                }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 12 } } }, cutout: '65%' }
             });
 
-            // --- 4. 绘制迪拜行情散点图 (增加17万租金标注点) ---
+            // --- 5. 绘制迪拜行情散点图 ---
             const dxbCtx = document.getElementById('dxbScatterChart').getContext('2d');
             const { m, b } = calcRegression(dxbScatterPoints);
             const myDxbProp = { x: myPortfolio.arabella.cost, y: myPortfolio.arabella.rent };
@@ -225,10 +261,10 @@
                         { label: '你的 Arabella 资产', data: [myDxbProp], backgroundColor: 'rgba(59, 130, 246, 1)', pointStyle: 'triangle', pointRadius: 8, rotation: 0 }
                     ]
                 },
-                options: { responsive: true, scales: { x: { ticks: { callback: v => (v/1000000).toFixed(1)+'M' } }, y: { ticks: { callback: v => (v/1000)+'K' } } } }
+                options: { maintainAspectRatio: false, responsive: true, scales: { x: { ticks: { callback: v => (v/1000000).toFixed(1)+'M' } }, y: { ticks: { callback: v => (v/1000)+'K' } } } }
             });
 
-            // --- 5. 绘制阿布扎比横评条形图 ---
+            // --- 6. 绘制阿布扎比横评条形图 ---
             const auhCtx = document.getElementById('auhBarChart').getContext('2d');
             new Chart(auhCtx, {
                 type: 'bar',
@@ -241,11 +277,7 @@
                         borderRadius: 4
                     }]
                 },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, max: 8 } }
-                }
+                options: { maintainAspectRatio: false, responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 8 } } }
             });
         }
 
